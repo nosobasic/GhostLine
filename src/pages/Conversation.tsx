@@ -1,9 +1,15 @@
 import React, { useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useMessages } from '../hooks/useMessages';
+import { useTypingIndicator } from '../hooks/useTypingIndicator';
+import { usePresence } from '../hooks/usePresence';
+import { useNotifications } from '../hooks/useNotifications';
 import { VoiceProfile } from '../hooks/useVoiceProfiles';
 import MessageList from '../components/chat/MessageList';
 import MessageInput from '../components/chat/MessageInput';
+import TypingIndicator from '../components/chat/TypingIndicator';
+import PresenceIndicator, { MultiPresenceIndicator } from '../components/ui/PresenceIndicator';
+import NotificationContainer from '../components/ui/NotificationContainer';
 import { PageLoadingSpinner } from '../components/ui/LoadingSpinner';
 import { supabase } from '../lib/supabaseClient';
 
@@ -28,6 +34,26 @@ const Conversation: React.FC<ConversationProps> = ({
     refresh,
     clearError
   } = useMessages(conversationId);
+
+  // Real-time features
+  const {
+    typingUsers,
+    setIsTyping
+  } = useTypingIndicator(conversationId);
+
+  const {
+    onlineUsers,
+    userStatuses,
+    isOnline
+  } = usePresence(conversationId);
+
+  const {
+    notifications,
+    removeNotification,
+    showSuccess,
+    showError,
+    showInfo
+  } = useNotifications();
 
   // Handle voice message upload
   const handleUploadVoiceMessage = useCallback(async (audioBlob: Blob): Promise<{ success: boolean; url?: string; error?: string }> => {
@@ -69,8 +95,27 @@ const Conversation: React.FC<ConversationProps> = ({
     audioUrl?: string,
     duration?: number
   ): Promise<{ success: boolean; error?: string }> => {
-    return await sendMessage(content, isVoice, audioUrl, duration);
-  }, [sendMessage]);
+    try {
+      const result = await sendMessage(content, isVoice, audioUrl, duration);
+      
+      if (result.success) {
+        // Show success notification for voice messages
+        if (isVoice) {
+          showSuccess('Voice message sent', 'Your voice message has been delivered successfully');
+        }
+      } else {
+        // Show error notification
+        showError('Failed to send message', result.error || 'Please try again');
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
+      showError('Failed to send message', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, [sendMessage, showSuccess, showError]);
 
   // Get conversation title (for now, use a simple format)
   const getConversationTitle = () => {
@@ -124,9 +169,12 @@ const Conversation: React.FC<ConversationProps> = ({
             <h2 className="text-lg font-semibold text-gray-900">
               {getConversationTitle()}
             </h2>
-            <p className="text-sm text-gray-500">
-              {messages.length} message{messages.length !== 1 ? 's' : ''}
-            </p>
+            <div className="flex items-center space-x-3 mt-1">
+              <p className="text-sm text-gray-500">
+                {messages.length} message{messages.length !== 1 ? 's' : ''}
+              </p>
+              <MultiPresenceIndicator users={onlineUsers} />
+            </div>
           </div>
         </div>
         
@@ -153,11 +201,18 @@ const Conversation: React.FC<ConversationProps> = ({
             </svg>
           </button>
 
-          {/* Connection status */}
-          <div className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-xs text-gray-500">Online</span>
-          </div>
+          {/* User presence status */}
+          <PresenceIndicator 
+            user={isOnline ? { 
+              userId: user?.id || '', 
+              userName: 'You', 
+              isOnline: true, 
+              lastSeen: new Date().toISOString(), 
+              status: 'online' 
+            } : undefined} 
+            showText={true}
+            size="sm"
+          />
         </div>
       </div>
 
@@ -193,12 +248,23 @@ const Conversation: React.FC<ConversationProps> = ({
         className="flex-1"
       />
 
+      {/* Typing Indicator */}
+      <TypingIndicator typingUsers={typingUsers} />
+
       {/* Message Input */}
       <MessageInput
         onSendMessage={handleSendMessage}
         onUploadVoiceMessage={handleUploadVoiceMessage}
         activeVoiceProfile={activeVoiceProfile}
         placeholder="Type your message..."
+        onTypingStart={() => setIsTyping(true)}
+        onTypingStop={() => setIsTyping(false)}
+      />
+
+      {/* Notification Container */}
+      <NotificationContainer
+        notifications={notifications}
+        onRemove={removeNotification}
       />
     </div>
   );

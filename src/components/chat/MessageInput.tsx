@@ -12,6 +12,8 @@ interface MessageInputProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  onTypingStart?: () => void;
+  onTypingStop?: () => void;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -20,7 +22,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   activeVoiceProfile,
   disabled = false,
   placeholder = 'Type your message...',
-  className = ''
+  className = '',
+  onTypingStart,
+  onTypingStop
 }) => {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -41,10 +45,25 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // Handle text input change
   const handleMessageChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
+    const newValue = e.target.value;
+    const wasEmpty = message.length === 0;
+    
+    setMessage(newValue);
     adjustTextareaHeight();
     setError(null);
-  }, [adjustTextareaHeight]);
+    
+    // Handle typing indicators
+    if (newValue.length > 0 && wasEmpty) {
+      // User started typing
+      onTypingStart?.();
+    } else if (newValue.length === 0 && !wasEmpty) {
+      // User stopped typing (cleared input)
+      onTypingStop?.();
+    } else if (newValue.length > 0) {
+      // User is actively typing
+      onTypingStart?.();
+    }
+  }, [message.length, adjustTextareaHeight, onTypingStart, onTypingStop]);
 
   // Handle text message send
   const handleSendTextMessage = useCallback(async () => {
@@ -62,6 +81,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
         }
+        // Stop typing indicator
+        onTypingStop?.();
       } else {
         setError(result.error || 'Failed to send message');
       }
@@ -198,7 +219,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               isRecording={isRecording}
               onStartRecording={handleStartRecording}
               onStopRecording={handleStopRecording}
-              disabled={disabled || isProcessing}
+
             />
           </div>
 
