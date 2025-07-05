@@ -1,299 +1,343 @@
 import { useState, useEffect, useCallback } from 'react';
-import { conversations, messages } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
-interface Message {
+// Types following strict TypeScript guidelines from rules.md
+export interface Message {
   id: string;
+  conversation_id: string;
+  user_id: string;
   content: string;
-  timestamp: Date;
-  isUser: boolean;
-  isVoice?: boolean;
-  duration?: number;
+  is_voice: boolean;
+  duration?: number | null;
+  audio_url?: string | null;
+  created_at: string;
 }
 
-interface Conversation {
-  id: string;
-  title: string;
-  lastMessage: string;
-  timestamp: Date;
-  isActive: boolean;
-}
-
-interface MessagesState {
-  conversations: Conversation[];
-  currentMessages: Message[];
+export interface MessageState {
+  messages: Message[];
   loading: boolean;
   error: string | null;
+  hasMore: boolean;
+  totalCount: number;
 }
 
-export const useMessages = (userId: string) => {
-  const [state, setState] = useState<MessagesState>({
-    conversations: [],
-    currentMessages: [],
-    loading: false,
+export interface MessageActions {
+  sendMessage: (content: string, isVoice?: boolean, audioUrl?: string, duration?: number) => Promise<{ success: boolean; error?: string }>;
+  deleteMessage: (messageId: string) => Promise<{ success: boolean; error?: string }>;
+  loadMore: () => Promise<void>;
+  refresh: () => Promise<void>;
+  clearError: () => void;
+  markAsRead: () => Promise<void>;
+}
+
+export type UseMessagesReturn = MessageState & MessageActions;
+
+const MESSAGES_PER_PAGE = 50;
+
+export const useMessages = (conversationId: string | null): UseMessagesReturn => {
+  const [messageState, setMessageState] = useState<MessageState>({
+    messages: [],
+    loading: true,
     error: null,
+    hasMore: true,
+    totalCount: 0,
   });
 
-  // Load conversations
-  const loadConversations = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+  // Helper to update message state
+  const updateMessageState = useCallback((updates: Partial<MessageState>) => {
+    setMessageState(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Helper to set error state
+  const setError = useCallback((error: string | null) => {
+    updateMessageState({ error, loading: false });
+  }, [updateMessageState]);
+
+  // Helper to set loading state
+  const setLoading = useCallback((loading: boolean) => {
+    updateMessageState({ loading });
+  }, [updateMessageState]);
+
+  // Fetch messages with pagination
+  const fetchMessages = useCallback(async (offset = 0, append = false): Promise<Message[]> => {
+    if (!conversationId) {
+      setError('No conversation ID provided');
+      return [];
+    }
     
     try {
-      const { data, error } = await conversations.getAll(userId);
+      const { data, error, count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact' })
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + MESSAGES_PER_PAGE - 1);
       
       if (error) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: error.message,
-        }));
-        return;
+        console.error('Error fetching messages:', error);
+        setError(error.message);
+        return [];
       }
 
-      const formattedConversations: Conversation[] = (data || []).map(conv => ({
-        id: conv.id,
-        title: conv.title,
-        lastMessage: 'Last message...', // This would come from the last message
-        timestamp: new Date(conv.updated_at),
-        isActive: true, // This would be determined by activity
-      }));
+      const messages = (data || []).reverse(); // Reverse to show oldest first
+      const totalCount = count || 0;
 
-      setState(prev => ({
-        ...prev,
-        conversations: formattedConversations,
-        loading: false,
-      }));
+      if (append) {
+        updateMessageState({
+          messages: [...messageState.messages, ...messages],
+          hasMore: offset + MESSAGES_PER_PAGE < totalCount,
+          totalCount,
+          loading: false,
+          error: null,
+        });
+      } else {
+        updateMessageState({
+          messages,
+          hasMore: MESSAGES_PER_PAGE < totalCount,
+          totalCount,
+          loading: false,
+          error: null,
+        });
+      }
+
+      return messages;
     } catch (error) {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load conversations',
-      }));
+      console.error('Error fetching messages:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch messages';
+      setError(errorMessage);
+      return [];
     }
-  }, [userId]);
+  }, [conversationId, setError, updateMessageState, messageState.messages]);
 
-  // Load messages for a conversation
-  const loadMessages = useCallback(async (conversationId: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const { data, error } = await messages.getAll(conversationId);
+  // Subscribe to real-time message updates
+  const subscribeToMessages = useCallback(() => {
+    if (!conversationId) return null;
+
+    console.log('Subscribing to messages for conversation:', conversationId);
+
+    const subscription = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload: any) => {
+          console.log('New message received:', payload.new);
+          const newMessage = payload.new as Message;
+          
+          // Avoid duplicates by checking if message already exists
+          setMessageState(prev => {
+            const exists = prev.messages.some(msg => msg.id === newMessage.id);
+            if (exists) return prev;
+            
+            return {
+          ...prev,
+              messages: [...prev.messages, newMessage],
+              totalCount: prev.totalCount + 1,
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload: any) => {
+          console.log('Message deleted:', payload.old);
+          const deletedMessage = payload.old as Message;
+          
+          setMessageState(prev => ({
+            ...prev,
+            messages: prev.messages.filter(msg => msg.id !== deletedMessage.id),
+            totalCount: Math.max(0, prev.totalCount - 1),
+          }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload: any) => {
+          console.log('Message updated:', payload.new);
+          const updatedMessage = payload.new as Message;
+
+          setMessageState(prev => ({
+        ...prev,
+            messages: prev.messages.map(msg => 
+              msg.id === updatedMessage.id ? updatedMessage : msg
+            ),
+      }));
+        }
+      )
+      .subscribe((status: any) => {
+        console.log('Subscription status:', status);
+      });
+
+    return subscription;
+  }, [conversationId]);
+
+  // Initialize messages and subscription
+  useEffect(() => {
+    if (!conversationId) {
+      updateMessageState({
+        messages: [],
+        loading: false,
+        error: null,
+        hasMore: false,
+        totalCount: 0,
+      });
+      return;
+    }
+
+    let mounted = true;
+
+    // Fetch initial messages
+    const initializeMessages = async () => {
+      setLoading(true);
+      setError(null);
       
-      if (error) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: error.message,
-        }));
-        return;
+      if (mounted) {
+        await fetchMessages(0, false);
       }
+    };
 
-      const formattedMessages: Message[] = (data || []).map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        timestamp: new Date(msg.created_at),
-        isUser: msg.user_id === userId,
-        isVoice: msg.is_voice,
-        duration: msg.duration,
-      }));
+    initializeMessages();
 
-      setState(prev => ({
-        ...prev,
-        currentMessages: formattedMessages,
-        loading: false,
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load messages',
-      }));
-    }
-  }, [userId]);
+    // Set up real-time subscription
+    const subscription = subscribeToMessages();
 
-  // Create new conversation
-  const createConversation = useCallback(async (title: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const { data, error } = await conversations.create(userId, title);
-      
-      if (error) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: error.message,
-        }));
-        return { success: false, error: error.message };
+    return () => {
+      mounted = false;
+      if (subscription) {
+        subscription.unsubscribe();
       }
+    };
+  }, [conversationId, fetchMessages, subscribeToMessages, setLoading, setError]);
 
-      if (data) {
-        const newConversation: Conversation = {
-          id: data.id,
-          title: data.title,
-          lastMessage: '',
-          timestamp: new Date(data.created_at),
-          isActive: true,
-        };
-
-        setState(prev => ({
-          ...prev,
-          conversations: [newConversation, ...prev.conversations],
-          loading: false,
-        }));
-
-        return { success: true, conversationId: data.id };
-      }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to create conversation',
-      }));
-      return { success: false, error: 'Failed to create conversation' };
-    }
-  }, [userId]);
-
-  // Send message
+  // Send a new message
   const sendMessage = useCallback(async (
-    conversationId: string,
     content: string,
     isVoice = false,
+    audioUrl?: string,
     duration?: number
-  ) => {
-    try {
-      const { data, error } = await messages.create(
-        conversationId,
-        userId,
-        content,
-        isVoice,
-        duration
-      );
-      
-      if (error) {
-        setState(prev => ({
-          ...prev,
-          error: error.message,
-        }));
-        return { success: false, error: error.message };
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!conversationId) {
+      return { success: false, error: 'No conversation selected' };
       }
 
-      if (data) {
-        const newMessage: Message = {
-          id: data.id,
-          content: data.content,
-          timestamp: new Date(data.created_at),
-          isUser: true,
-          isVoice: data.is_voice,
-          duration: data.duration,
-        };
-
-        setState(prev => ({
-          ...prev,
-          currentMessages: [...prev.currentMessages, newMessage],
-        }));
-
-        // Update conversation timestamp
-        await conversations.update(conversationId, {
-          updated_at: new Date().toISOString(),
-        });
-
-        return { success: true, messageId: data.id };
-      }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: 'Failed to send message',
-      }));
-      return { success: false, error: 'Failed to send message' };
+    if (!content.trim() && !isVoice) {
+      return { success: false, error: 'Message content cannot be empty' };
     }
-  }, [userId]);
 
-  // Delete conversation
-  const deleteConversation = useCallback(async (conversationId: string) => {
     try {
-      const { error } = await conversations.delete(conversationId);
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return { success: false, error: 'User not authenticated' };
+    }
+
+      // Insert message
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          user_id: user.id,
+          content,
+          is_voice: isVoice,
+          audio_url: audioUrl || null,
+          duration: duration || null,
+        })
+        .select()
+        .single();
       
       if (error) {
-        setState(prev => ({
-          ...prev,
-          error: error.message,
-        }));
+        console.error('Error sending message:', error);
         return { success: false, error: error.message };
       }
 
-      setState(prev => ({
-        ...prev,
-        conversations: prev.conversations.filter(conv => conv.id !== conversationId),
-        currentMessages: [], // Clear messages when conversation is deleted
-      }));
+      // Update conversation timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversationId);
 
+      console.log('Message sent successfully:', data);
       return { success: true };
     } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: 'Failed to delete conversation',
-      }));
-      return { success: false, error: 'Failed to delete conversation' };
+      console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
+      return { success: false, error: errorMessage };
     }
-  }, []);
+  }, [conversationId]);
 
-  // Update conversation title
-  const updateConversationTitle = useCallback(async (conversationId: string, newTitle: string) => {
+  // Delete a message
+  const deleteMessage = useCallback(async (messageId: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await conversations.update(conversationId, { title: newTitle });
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
       
       if (error) {
-        setState(prev => ({
-          ...prev,
-          error: error.message,
-        }));
+        console.error('Error deleting message:', error);
         return { success: false, error: error.message };
       }
 
-      if (data) {
-        setState(prev => ({
-          ...prev,
-          conversations: prev.conversations.map(conv =>
-            conv.id === conversationId
-              ? { ...conv, title: data.title }
-              : conv
-          ),
-        }));
-
         return { success: true };
-      }
     } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: 'Failed to update conversation title',
-      }));
-      return { success: false, error: 'Failed to update conversation title' };
+      console.error('Error deleting message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete message';
+      return { success: false, error: errorMessage };
     }
   }, []);
 
-  // Clear error
+  // Load more messages (pagination)
+  const loadMore = useCallback(async (): Promise<void> => {
+    if (!messageState.hasMore || messageState.loading) return;
+
+    setLoading(true);
+    await fetchMessages(messageState.messages.length, true);
+  }, [messageState.hasMore, messageState.loading, messageState.messages.length, fetchMessages, setLoading]);
+
+  // Refresh messages
+  const refresh = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    await fetchMessages(0, false);
+  }, [fetchMessages, setLoading, setError]);
+
+  // Clear error state
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
+    setError(null);
+  }, [setError]);
 
-  // Load conversations on mount
-  useEffect(() => {
-    if (userId) {
-      loadConversations();
-    }
-  }, [userId, loadConversations]);
+  // Mark messages as read (for future implementation)
+  const markAsRead = useCallback(async (): Promise<void> => {
+    // TODO: Implement read receipts functionality
+    // This would involve updating a read_at timestamp or similar
+    console.log('Mark as read functionality - to be implemented');
+  }, []);
 
   return {
-    conversations: state.conversations,
-    currentMessages: state.currentMessages,
-    loading: state.loading,
-    error: state.error,
-    loadConversations,
-    loadMessages,
-    createConversation,
+    ...messageState,
     sendMessage,
-    deleteConversation,
-    updateConversationTitle,
+    deleteMessage,
+    loadMore,
+    refresh,
     clearError,
+    markAsRead,
   };
 }; 
