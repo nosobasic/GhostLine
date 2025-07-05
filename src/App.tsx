@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ChatHub from './pages/ChatHub';
 import Profile from './pages/Profile';
+import VoiceProfiles from './pages/VoiceProfiles';
+import AppLayout from './components/layout/AppLayout';
 import { useAuth } from './hooks/useAuth';
 
 const App: React.FC = () => {
@@ -29,14 +31,21 @@ const App: React.FC = () => {
     <Router>
       <div className="min-h-screen bg-gray-50">
         <Routes>
+          {/* Authenticated routes with layout */}
           <Route 
             path="/" 
-            element={isAuthenticated ? <ChatHub /> : <Navigate to="/login" replace />} 
+            element={isAuthenticated ? <AppLayout><ChatHub /></AppLayout> : <Navigate to="/login" replace />} 
           />
           <Route 
             path="/profile" 
-            element={isAuthenticated ? <Profile /> : <Navigate to="/login" replace />} 
+            element={isAuthenticated ? <AppLayout><Profile /></AppLayout> : <Navigate to="/login" replace />} 
           />
+          <Route 
+            path="/voice-profiles" 
+            element={isAuthenticated ? <AppLayout><VoiceProfiles /></AppLayout> : <Navigate to="/login" replace />} 
+          />
+          
+          {/* Public routes */}
           <Route 
             path="/login" 
             element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} 
@@ -122,6 +131,14 @@ const LoginPage: React.FC = () => {
             >
               Sign in
             </button>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <a href="/signup" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Sign up
+              </a>
+            </p>
           </div>
         </form>
       </div>
@@ -214,6 +231,14 @@ const SignupPage: React.FC = () => {
             >
               Sign up
             </button>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <a href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+                Sign in
+              </a>
+            </p>
           </div>
         </form>
       </div>
