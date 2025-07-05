@@ -1,0 +1,142 @@
+# GhostLine Documentation Links
+
+## Core Technologies
+
+### React & TypeScript
+- React Documentation: https://react.dev/
+- TypeScript Handbook: https://www.typescriptlang.org/docs/
+- React TypeScript Cheatsheet: https://react-typescript-cheatsheet.netlify.app/
+
+### Routing & Navigation
+- React Router v6: https://reactrouter.com/en/main
+- React Router TypeScript: https://reactrouter.com/en/main/guides/typescript
+
+### Styling & UI
+- Tailwind CSS: https://tailwindcss.com/docs
+- Tailwind UI Components: https://tailwindui.com/components
+- Headless UI: https://headlessui.com/
+
+## Backend & Database
+
+### Supabase
+- Supabase Documentation: https://supabase.com/docs
+- Supabase JavaScript Client: https://supabase.com/docs/reference/javascript
+- Supabase Auth: https://supabase.com/docs/guides/auth
+- Supabase Storage: https://supabase.com/docs/guides/storage
+- Supabase Real-time: https://supabase.com/docs/guides/realtime
+- Row Level Security: https://supabase.com/docs/guides/auth/row-level-security
+
+### Database
+- PostgreSQL Documentation: https://www.postgresql.org/docs/
+- SQL Functions: https://www.postgresql.org/docs/current/functions.html
+- JSONB Data Type: https://www.postgresql.org/docs/current/datatype-json.html
+
+## Audio & Voice Processing
+
+### Web Audio API
+- Web Audio API MDN: https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API
+- AudioContext: https://developer.mozilla.org/en-US/docs/Web/API/AudioContext
+- MediaRecorder API: https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder
+
+### Voice Processing
+- Voice Activity Detection: https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities
+- Audio Worklets: https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet
+- Speech Recognition: https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition
+
+## State Management & Hooks
+
+### React Hooks
+- React Hooks: https://react.dev/reference/react/hooks
+- Custom Hooks: https://react.dev/learn/reusing-logic-with-custom-hooks
+- useEffect: https://react.dev/reference/react/useEffect
+- useState: https://react.dev/reference/react/useState
+
+### Context API
+- Context API: https://react.dev/reference/react/createContext
+- useContext: https://react.dev/reference/react/useContext
+
+## Testing
+
+### Testing Libraries
+- Jest: https://jestjs.io/docs/getting-started
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro
+- User Event: https://testing-library.com/docs/user-event/intro
+
+### Testing Strategies
+- Testing Best Practices: https://kentcdodds.com/blog/common-mistakes-with-react-testing-library
+- Testing Custom Hooks: https://react-hooks-testing-library.com/
+
+## Performance & Optimization
+
+### React Performance
+- React Performance: https://react.dev/learn/render-and-commit
+- React.memo: https://react.dev/reference/react/memo
+- useMemo: https://react.dev/reference/react/useMemo
+- useCallback: https://react.dev/reference/react/useCallback
+
+### Web Performance
+- Web Vitals: https://web.dev/vitals/
+- Lighthouse: https://developers.google.com/web/tools/lighthouse
+- Performance API: https://developer.mozilla.org/en-US/docs/Web/API/Performance
+
+## Security
+
+### Web Security
+- OWASP Top 10: https://owasp.org/www-project-top-ten/
+- Content Security Policy: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+- HTTPS Best Practices: https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security
+
+### Authentication
+- JWT Best Practices: https://auth0.com/blog/a-look-at-the-latest-draft-for-jwt-bcp/
+- Session Management: https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+
+## Accessibility
+
+### WCAG Guidelines
+- WCAG 2.1: https://www.w3.org/WAI/WCAG21/quickref/
+- Accessible Rich Internet Applications (ARIA): https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA
+- React Accessibility: https://react.dev/learn/accessibility
+
+## Deployment
+
+### Build & Deploy
+- Create React App: https://create-react-app.dev/docs/deployment
+- Vercel: https://vercel.com/docs
+- Netlify: https://docs.netlify.com/
+- Environment Variables: https://create-react-app.dev/docs/adding-custom-environment-variables
+
+## AI & Voice Technologies
+
+### Voice AI
+- Web Speech API: https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API
+- Voice Synthesis: https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis
+- Audio Processing Libraries: https://github.com/audiojs
+
+### Machine Learning
+- TensorFlow.js: https://www.tensorflow.org/js
+- ML5.js: https://ml5js.org/
+- WebRTC: https://webrtc.org/
+
+## Tools & Development
+
+### Development Tools
+- VS Code: https://code.visualstudio.com/docs
+- Chrome DevTools: https://developer.chrome.com/docs/devtools/
+- React DevTools: https://react.dev/learn/react-developer-tools
+
+### Package Management
+- npm: https://docs.npmjs.com/
+- npm Scripts: https://docs.npmjs.com/cli/v7/using-npm/scripts
+
+## Browser APIs
+
+### Media APIs
+- MediaDevices: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices
+- getUserMedia: https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+- File API: https://developer.mozilla.org/en-US/docs/Web/API/File
+- Blob API: https://developer.mozilla.org/en-US/docs/Web/API/Blob
+
+### Storage APIs
+- localStorage: https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+- IndexedDB: https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+- Service Workers: https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
