@@ -1,13 +1,53 @@
-import { createClient } from '@supabase/supabase-js';
+// MOCKED Supabase client for frontend development without real credentials
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
+// Dummy user with user_metadata
+const mockUser = {
+  id: 'user-123',
+  email: 'test@example.com',
+  name: 'Test User',
+  avatar_url: '',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  user_metadata: {
+    name: 'Test User',
+    avatar_url: '',
+  },
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase environment variables. Please check your .env file.');
-}
+// Dummy conversations
+const mockConversations = [
+  {
+    id: 'conv-1',
+    user_id: mockUser.id,
+    title: 'Sample Conversation',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Dummy messages
+const mockMessages = [
+  {
+    id: 'msg-1',
+    conversation_id: 'conv-1',
+    user_id: mockUser.id,
+    content: 'Hello! This is a mock message.',
+    is_voice: false,
+    duration: 0,
+    created_at: new Date().toISOString(),
+  },
+];
+
+export const supabase = null; // Not used in mock
+
+type MockError = { message: string } | null;
+
+type MockUser = typeof mockUser;
+type MockConversation = typeof mockConversations[0];
+type MockMessage = typeof mockMessages[0];
+
+// Helper to return error object or null
+const mockError = (msg?: string) => (msg ? { message: msg } : null);
 
 // Database types
 export interface Database {
@@ -95,100 +135,45 @@ export interface Database {
   };
 }
 
-// Helper functions
 export const auth = {
-  signUp: async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-        },
-      },
-    });
-    return { data, error };
-  },
-
-  signIn: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
-  },
-
-  signOut: async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
-  },
-
-  getCurrentUser: async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    return { user, error };
-  },
+  signUp: async (_email: string, _password: string, _name: string): Promise<{ data: { user: MockUser }; error: MockError }> => ({ data: { user: mockUser }, error: null }),
+  signIn: async (_email: string, _password: string): Promise<{ data: { user: MockUser }; error: MockError }> => ({ data: { user: mockUser }, error: null }),
+  signOut: async (): Promise<{ error: MockError }> => ({ error: null }),
+  getCurrentUser: async (): Promise<{ user: MockUser; error: MockError }> => ({ user: mockUser, error: null }),
 };
 
 export const conversations = {
-  getAll: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
-    return { data, error };
-  },
-
-  create: async (userId: string, title: string) => {
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert([{ user_id: userId, title }])
-      .select()
-      .single();
-    return { data, error };
-  },
-
-  update: async (id: string, updates: Partial<Database['public']['Tables']['conversations']['Update']>) => {
-    const { data, error } = await supabase
-      .from('conversations')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    return { data, error };
-  },
-
-  delete: async (id: string) => {
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', id);
-    return { error };
-  },
+  getAll: async (_userId: string): Promise<{ data: MockConversation[]; error: MockError }> => ({ data: mockConversations, error: null }),
+  create: async (_userId: string, title: string): Promise<{ data: MockConversation; error: MockError }> => ({
+    data: { ...mockConversations[0], id: 'conv-2', title, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    error: null,
+  }),
+  update: async (id: string, updates: Partial<MockConversation>): Promise<{ data: MockConversation; error: MockError }> => ({
+    data: { ...mockConversations[0], ...updates, id },
+    error: null,
+  }),
+  delete: async (_id: string): Promise<{ error: MockError }> => ({ error: null }),
 };
 
 export const messages = {
-  getAll: async (conversationId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-    return { data, error };
-  },
-
-  create: async (conversationId: string, userId: string, content: string, isVoice = false, duration?: number) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([{
-        conversation_id: conversationId,
-        user_id: userId,
-        content,
-        is_voice: isVoice,
-        duration,
-      }])
-      .select()
-      .single();
-    return { data, error };
-  },
+  getAll: async (conversationId: string): Promise<{ data: MockMessage[]; error: MockError }> => ({ data: mockMessages.filter(m => m.conversation_id === conversationId), error: null }),
+  create: async (
+    conversationId: string,
+    userId: string,
+    content: string,
+    isVoice: boolean = false,
+    duration?: number
+  ): Promise<{ data: MockMessage; error: MockError }> => ({
+    data: {
+      ...mockMessages[0],
+      id: 'msg-' + Math.random().toString(36).substr(2, 5),
+      conversation_id: conversationId,
+      user_id: userId,
+      content,
+      is_voice: isVoice,
+      duration: duration ?? 0,
+      created_at: new Date().toISOString(),
+    },
+    error: null,
+  }),
 }; 
